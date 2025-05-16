@@ -1,0 +1,55 @@
+import { Component, OnInit } from '@angular/core';
+import { NgForm } from '@angular/forms';
+import { Router } from '@angular/router';
+import { UserService } from '../services/user-service/user.service';
+
+@Component({
+  selector: 'app-login',
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.css']
+})
+export class LoginComponent implements OnInit {
+  status: string = '';
+  errorMsg: string = '';
+  showDiv: boolean = false;
+
+  constructor(private _userService: UserService, private router: Router) {}
+
+  ngOnInit(): void {
+    this._userService.logout();
+  }
+
+  submitLoginForm(form: NgForm) {
+    if (!form.valid) {
+      this.errorMsg = 'Please fill in all required fields.';
+      this.showDiv = true;
+      return;
+    }
+
+    const credentials = {
+      email: form.value.email,
+      password: form.value.password
+    };
+
+    this._userService.validateCredentials(credentials.email, credentials.password).subscribe(
+      (response: any) => {
+        const user = response?.userId ? response : response?.data;
+
+        if (user && user.userId) {
+          localStorage.setItem("userId", user.userId.toString());
+          localStorage.setItem("userName", user.firstName);
+          localStorage.setItem("userRole", user.roleName);
+          this.router.navigate(['/dashboard']);
+        } else {
+          this.status = 'Invalid credentials. Please try again.';
+          this.showDiv = true;
+        }
+      },
+      error => {
+        this.errorMsg = 'Server error occurred. Try again later.';
+        this.showDiv = true;
+      },
+      () => console.log('Login process completed.')
+    );
+  }
+}
