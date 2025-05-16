@@ -50,3 +50,19 @@ export class UserService {
     return this.http.get<Order[]>(`${this.apiUrl}/users/${userId}/orders`);
   }
 }
+
+export interface User {
+  userId: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  address: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  roleId: number;
+  roleName: string;
+  token?: string;
+}
