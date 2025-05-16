@@ -1,57 +1,67 @@
-import { Component, OnInit } from '@angular/core';
-import { NgForm } from '@angular/forms';
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable({ providedIn: 'root' })
+export class UserService {
+  private baseUrl = '/api/User';
+
+  constructor(private http: HttpClient) {}
+
+  authenticateUser(email: string, password: string): Observable<boolean> {
+    return this.http.post<boolean>(`${this.baseUrl}/AuthenticateUser`, { email, password });
+  }
+
+  getUserIdByEmail(email: string): Observable<number> {
+    return this.http.get<number>(`${this.baseUrl}/GetUserIdByEmail/${email}`);
+  }
+
+  getSavedProducts(userId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/GetSavedProducts/${userId}`);
+  }
+
+  getOrderHistory(userId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/GetOrderHistory/${userId}`);
+  }
+}
+login.ts
+import { Component } from '@angular/core';
 import { Router } from '@angular/router';
-import { UserService } from '../services/user-service/user.service';
+import { UserService } from '../services/user.service';
 
 @Component({
   selector: 'app-login',
-  templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css']
+  templateUrl: './login.component.html'
 })
-export class LoginComponent implements OnInit {
-  errorMsg: string = "";
-  msg: string = "";
-  showDiv: boolean = false;
+export class LoginComponent {
+  email = '';
+  password = '';
+  errorMessage = '';
 
-  constructor(private _userService: UserService, private router: Router) {}
+  constructor(private userService: UserService, private router: Router) {}
 
-  ngOnInit(): void {
-    // Clear any existing login state
-    this._userService.logout();
-  }
-
-  submitLoginForm(form: NgForm): void {
-    if (!form.valid) {
-      this.errorMsg = "Please fill in all required fields.";
-      return;
-    }
-
-    const email = form.value.email;
-    const password = form.value.password;
-
-    console.log("Login attempt with:", email, password); // Debug log
-
-    this._userService.validateCredentials(email, password).subscribe(
-      (response: any) => {
-        console.log("Response from backend:", response); // Debug log
-
-        if (response && response.userId) {
-          // Save user info in localStorage
-          localStorage.setItem("userId", response.userId.toString());
-          localStorage.setItem("userName", response.firstName);
-          localStorage.setItem("userRole", response.roleName);
-
-          // Redirect to dashboard
-          this.router.navigate(['/dashboard']);
+  loginUser(): void {
+    this.userService.authenticateUser(this.email, this.password).subscribe({
+      next: (isAuthenticated) => {
+        if (isAuthenticated) {
+          this.userService.getUserIdByEmail(this.email).subscribe({
+            next: (userId) => {
+              localStorage.setItem('userId', userId.toString());
+              this.router.navigate(['/dashboard']);
+            },
+            error: () => {
+              this.errorMessage = 'Failed to retrieve user ID.';
+            }
+          });
         } else {
-          this.showDiv = true;
-          this.msg = "Invalid credentials. Try again.";
+          this.errorMessage = 'Invalid email or password.';
         }
       },
-      (error) => {
-        console.error("Login error:", error); // Debug log
-        this.errorMsg = "Server error. Please try again later.";
+      error: () => {
+        this.errorMessage = 'Login failed. Please try again.';
       }
-    );
+    });
   }
 }
+
+
