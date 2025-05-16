@@ -1,0 +1,59 @@
+import { Component, OnInit } from '@angular/core';
+import { NgForm } from '@angular/forms';
+import { Router } from '@angular/router';
+import { UserService } from '../services/user-service/user.service';
+
+@Component({
+  selector: 'app-login',
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.css']
+})
+export class LoginComponent implements OnInit {
+  errorMsg: string = "";
+  msg: string = "";
+  showDiv: boolean = false;
+
+  constructor(private _userService: UserService, private router: Router) {}
+
+  ngOnInit(): void {
+    // Clear any existing login state
+    this._userService.logout();
+  }
+
+  submitLoginForm(form: NgForm): void {
+    if (!form.valid) {
+      this.errorMsg = "Please fill in all required fields.";
+      return;
+    }
+
+    const email = form.value.email;
+    const password = form.value.password;
+
+    console.log("Login attempt with:", email, password); // Debug log
+
+    this._userService.validateCredentials(email, password).subscribe(
+      (response: any) => {
+        console.log("Response from backend:", response); // Debug log
+
+        if (response && response.userId) {
+          // Save user info in localStorage
+          localStorage.setItem("userId", response.userId.toString());
+          localStorage.setItem("userName", response.firstName);
+          localStorage.setItem("userRole", response.roleName);
+
+          // Redirect to dashboard
+          this.router.navigate(['/dashboard']);
+        } else {
+          this.showDiv = true;
+          this.msg = "Invalid credentials. Try again.";
+        }
+      },
+      (error) => {
+        console.error("Login error:", error); // Debug log
+        this.errorMsg = "Server error. Please try again later.";
+      }
+    );
+  }
+}
+
+
