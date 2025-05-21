@@ -1,0 +1,42 @@
+login.html
+
+<!-- Toast Notification -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
+  <div id="loginToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">
+        Login successful! Redirecting...
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+=======
+login.component.ts
+
+// Show Bootstrap toast
+const toastEl = document.getElementById('loginToast');
+if (toastEl) {
+  const toast = new bootstrap.Toast(toastEl);
+  toast.show();
+}
+
+// Redirect after short delay
+setTimeout(() => {
+  this.router.navigate(['/products']);
+}, 2000);
+====≈
+top 
+
+declare var bootstrap: any;
+========
+
+last 
+
+<div class="text-center mt-3">
+  Don't have an account?
+  <a routerLink="/signup" class="text-primary text-decoration-underline">Sign up</a>
+</div>
+
+=============
