@@ -1,0 +1,76 @@
+import { Component, OnInit } from '@angular/core';
+import { NgForm } from '@angular/forms';
+import { Router } from '@angular/router';
+import { UserService } from '../services/user-service/user.service';
+import { ToastrService } from 'ngx-toastr';
+
+@Component({
+  selector: 'app-login',
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.css']
+})
+export class LoginComponent implements OnInit {
+
+  constructor(
+    private _userService: UserService,
+    private router: Router,
+    private toastr: ToastrService
+  ) {}
+
+  ngOnInit(): void {
+    this._userService.logout();
+  }
+
+  submitLoginForm(form: NgForm) {
+    if (!form.valid) {
+      this.toastr.warning('Please fill in all required fields.', 'Validation Error');
+      return;
+    }
+
+    this._userService.validateCredentials(form.value.email, form.value.password).subscribe(
+      (response: any) => {
+        if (response.success) {
+          sessionStorage.setItem("userId", response.user.userId);
+          sessionStorage.setItem("userRoleId", response.user.roleId);
+          this.toastr.success('Login successful!', 'Welcome');
+          this.router.navigate(['/products']);
+        } else {
+          this.toastr.error('Invalid credentials. Please try again.', 'Login Failed');
+        }
+      },
+      () => {
+        this.toastr.error('Server error. Please try again later.', 'Error');
+      }
+    );
+  }
+}
+
+
+<app-navbar></app-navbar>
+
+<div class="container mt-4">
+  <form #loginForm="ngForm" (ngSubmit)="submitLoginForm(loginForm)" class="card p-4 shadow">
+    <h2 class="text-center mb-3">Login</h2>
+
+    <div class="form-group mb-3">
+      <label>Email</label>
+      <input type="email" name="email" #emailRef="ngModel" ngModel required
+             class="form-control" placeholder="Enter email">
+      <div *ngIf="emailRef.invalid && (emailRef.touched || emailRef.dirty)" class="text-danger">
+        <div *ngIf="emailRef.errors?.['required']">Email is required</div>
+        <div *ngIf="emailRef.errors?.['email']">Invalid email format</div>
+      </div>
+    </div>
+
+    <div class="form-group mb-3">
+      <label>Password</label>
+      <input type="password" name="password" #passwordRef="ngModel" ngModel required
+             class="form-control" placeholder="Enter password">
+      <div *ngIf="passwordRef.invalid && (passwordRef.touched || passwordRef.dirty)" class="text-danger">
+        <div *ngIf="passwordRef.errors?.['required']">Password is required</div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">Login</button>
+  </form>
+</div>
