@@ -143,3 +143,17 @@ export class LoginComponent implements OnInit {
   </form>
 </div>
 
+
+<div
+  *ngIf="showToast"
+  class="toast align-items-center text-white border-0 position-fixed top-0 end-0 m-3 show {{ toastColor }}"
+  role="alert"
+  aria-live="assertive"
+  aria-atomic="true"
+>
+  <div class="d-flex">
+    <div class="toast-body">
+      {{ toastMessage }}
+    </div>
+  </div>
+</div>
