@@ -19,3 +19,14 @@
   <small *ngIf="lastNameRef.errors?.['required']">Last name is required.</small>
   <small *ngIf="lastNameRef.errors?.['pattern']">Only letters allowed.</small>
 </div>
+<input type="password" name="password" class="form-control" ngModel required
+  pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@_])[A-Za-z\d@_]{8,}$"
+  #passwordRef="ngModel">
+<div *ngIf="passwordRef.invalid && (passwordRef.dirty || passwordRef.touched)" style="color:red;">
+  <small *ngIf="passwordRef.errors?.['required']">Password is required.</small>
+  <small *ngIf="passwordRef.errors?.['pattern']">
+    Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 digit, and 1 special character (@ or _).
+  </small>
+</div>
+
+
