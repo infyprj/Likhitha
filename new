@@ -277,3 +277,211 @@ ______________
     <div *ngIf="errorMsg" class="alert alert-danger mt-3">{{ errorMsg }}</div>
   </form>
 </div>
+
+=====================================================================================
+
+import { Component,OnInit } from '@angular/core';
+import { IProduct } from '../interfaces/product';
+import { ProductService } from '../services/product-service/product.service';
+import { AuthService } from '../services/auth-service/auth.service';
+import { Router } from '@angular/router';
+import { CartService } from '../services/cart-service/cart.service';
+import { ICartItem } from '../interfaces/cart';
+import { ISavedProduct } from '../interfaces/saved-product';
+
+@Component({
+  selector: 'app-view-wishlist',
+  templateUrl: './view-wishlist.component.html',
+  styleUrls: ['./view-wishlist.component.css']
+})
+export class ViewWishlistComponent implements OnInit{
+  savedProducts: any[] = [];
+  isLoading: boolean = false;
+  errorMessage: String = "";
+  currentUserId: number = 0;
+  showLoginSuggestion: boolean = false;
+  toastMessage = '';
+  showToast = false;
+  toastType: 'success' | 'error' = 'success';
+  
+  constructor(private _productService: ProductService,
+    private authService: AuthService,
+    private router: Router,
+    private _cartService: CartService) { }
+
+  ngOnInit(): void {
+   
+      const id: string = <string>sessionStorage.getItem('userId');
+      this.currentUserId = parseInt(id);
+
+      if (!this.currentUserId) {
+        this.showLoginSuggestion = true;
+      } else {
+        this.loadSavedProducts();
+      }
+
+      
+    
+  }
+
+  loadSavedProducts() :void {
+    this.isLoading = true;
+    this._productService.getSavedProducts(this.currentUserId).subscribe(
+      response => {
+        this.savedProducts = response;
+        this.isLoading = false;
+      },
+      error => {
+        this.errorMessage = "";
+        this.isLoading = false;
+        console.error(error);
+      }
+    );
+  }
+  removeFromWishlist(productId: number) {
+    this._productService.removeSavedProduct(this.currentUserId, productId).subscribe(
+      response => {
+        this.savedProducts = this.savedProducts.filter(p => p.productId !== productId);
+        console.log("removed from wishlist");
+      },
+      error => {
+        console.log(error);
+        this.showPopUp("error removing from wishlist");
+      }
+    );
+  }
+
+  addToCart(product:any): void {
+    const cartItem: ICartItem = {
+      productId: product.productId,
+      quantity: 1,
+      userId:this.currentUserId
+    };
+    this._cartService.addProductToCart(cartItem).subscribe({
+      //next: () => console.log("added to cart"),
+      //error: err => console.error("cart add failed", err)
+      next: () => {
+        this.showPopUp(`product "${product.name}" added to cart`);
+      },
+      error: () => {
+        this.showPopUp(`failed to add`);
+      }
+    }
+    );
+  }
+
+  viewProductDetails(productId: number): void {
+    this.router.navigate(['/product', productId]);
+  }
+
+  addToWishList(prodId: number): void {
+    const item: ISavedProduct = {
+      userId: this.currentUserId,
+      productId:prodId
+    };
+    this._productService.addProductToWishlist(item).subscribe({
+      next: () => console.log("added to wishlist"),
+      error: err => console.error("wishlist add failed", err)
+    });
+  }
+
+  showPopUp(message: string,type:'success' | 'error'='success'): void {
+    this.toastMessage = message;
+    this.toastType = type;
+    this.showToast = true;
+    setTimeout(() => this.showToast = false, 3000);
+  }
+
+}
+=======================================
+
+<app-navbar></app-navbar>
+
+<!--Login Suggestion for Guest User-->
+<div class="mt-5" *ngIf="showLoginSuggestion">
+  <h2>Please Login</h2>
+  <p class="text-secondary">Login to view items in your Wishlist</p>
+  <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="currentColor" class="bi bi-balloon-heart" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="m8 2.42-.717-.737c-1.13-1.161-3.243-.777-4.01.72-.35.685-.451 1.707.236 3.062C4.16 6.753 5.52 8.32 8 10.042c2.479-1.723 3.839-3.29 4.491-4.577.687-1.355.587-2.377.236-3.061-.767-1.498-2.88-1.882-4.01-.721zm-.49 8.5c-10.78-7.44-3-13.155.359-10.063q.068.062.132.129.065-.067.132-.129c3.36-3.092 11.137 2.624.357 10.063l.235.468a.25.25 0 1 1-.448.224l-.008-.017c.008.11.02.202.037.29.054.27.161.488.419 1.003.288.578.235 1.15.076 1.629-.157.469-.422.867-.588 1.115l-.004.007a.25.25 0 1 1-.416-.278c.168-.252.4-.6.533-1.003.133-.396.163-.824-.049-1.246l-.013-.028c-.24-.48-.38-.758-.448-1.102a3 3 0 0 1-.052-.45l-.04.08a.25.25 0 1 1-.447-.224l.235-.468ZM6.013 2.06c-.649-.18-1.483.083-1.85.798-.131.258-.245.689-.08 1.335.063.244.414.198.487-.043.21-.697.627-1.447 1.359-1.692.217-.073.304-.337.084-.398" />
+  </svg>
+  <div>
+    <button class="btn btn-outline-primary login-btn mt-4" routerLink="/login">Login</button>
+  </div>
+</div>
+
+
+<!--Toast Message-->
+<div class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 1005;" *ngIf="showToast">
+  <div class="toast show text-white" [ngClass]="toastType==='success' ? 'bg-success' : 'bg-danger'">
+    <div class="toast-body">
+      {{toastMessage}}
+    </div>
+  </div>
+</div>
+
+<div class="container my-4">
+  <!--<h2 class="mb-4">Your Wishlist</h2>-->
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="text-center">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p>Loading your wishlist items...</p>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="errorMessage" class="alert alert-danger">
+    {{ errorMessage }}
+  </div>
+
+  <!-- Empty Wishlist -->
+  <div *ngIf="!isLoading && savedProducts.length === 0 && !showLoginSuggestion" class="text-center mt-5" >
+    <div class="alert alert-info w-50 mx-auto">
+      Your wishlist is empty. Start saving your favorite products!
+    </div>
+  </div>
+
+  <!-- Wishlist Items -->
+  <div class="row" *ngIf="!isLoading && savedProducts.length > 0">
+    <div class="col-md-6 mb-4" *ngFor="let product of savedProducts">
+      <div class="card h-100 shadow-sm p-3" style="border-radius: 10px;">
+        <div class="row g-0">
+
+          <!-- Image -->
+          <div class="col-md-4">
+            <img [src]="product.thumbnailUrl"
+                 class="img-fluid rounded-start"
+                 alt="{{ product.name }}"
+                 style="height: 180px; width: 100%; object-fit: cover; cursor: pointer;"
+                 (click)="viewProductDetails(product.productId)">
+          </div>
+
+          <!-- Details -->
+          <div class="col-md-8">
+            <div class="card-body h-100 d-flex flex-column">
+              <h5 class="card-title mb-2" style="cursor: pointer;"
+                  (click)="viewProductDetails(product.productId)">
+                {{ product.name }}
+              </h5>
+              <p class="fw-bold text-success mb-3">₹{{ product.price }}</p>
+
+              <!-- Buttons -->
+              <div class="mt-auto d-flex gap-2">
+                <button class="btn btn-primary btn-sm"
+                        (click)="addToCart(product)">
+                  Add to Cart
+                </button>
+
+                <button class="btn btn-outline-danger btn-sm"
+                        (click)="removeFromWishlist(product.productId)">
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
