@@ -1,0 +1,173 @@
+repository.cs
+
+#region GetCustomizationbyUserId
+
+public Customization GetCustomizationbyUserId(int userId)
+{
+    Customization customization = null;
+    try
+    {
+        customization = (from u in context.Customizations
+                         where u.UserID == userId
+                         select u).FirstOrDefault();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex.Message);
+        customization = null;
+    }
+    return customization;
+}
+#endregion
+
+#region GetCustomizationbyCustomId
+
+public Customization GetCustomizationbyCustomId(int customId)
+{
+    Customization customization = null;
+    try
+    {
+        customization = (from u in context.Customizations
+                         where u.CustomizationID == customId
+                         select u).FirstOrDefault();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex.Message);
+        customization = null;
+    }
+    return customization;
+}
+#endregion
+
+#region GetAllCustomizations - Returns all Customizations
+
+public List<Customization> GetAllCustomizations()
+{
+    List<Customization> customizations = new List<Customization>();
+    try
+    {
+        customizations = (from c in context.Customizations select c).ToList();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex.Message);
+        customizations = new List<Customization>();
+
+    }
+    return customizations;
+}
+
+#endregion
+
+#region AddCustomization 
+
+public bool AddCustomization(Customization customobj)
+{
+    bool status = false;
+    try
+    {
+        object value = context.Customizations.Add(customobj);
+        context.SaveChanges();
+        status = true;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex.Message);
+        status = false;
+    }
+    return status;
+}
+
+#endregion
+================================
+customizationController
+
+using Infosys.Shop3D.DataAccessLayer;
+using Infosys.Shop3D.DataAccessLayer.Models;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Infosys.Shop3D.WebServices.Controllers
+{
+    [Route("api/[controller]/[action]")]
+    [ApiController]
+    public class CustomizationController : Controller
+    {
+        public Shop3DRepository repository;
+        public CustomizationController(Shop3DRepository repository)
+        {
+            this.repository = repository;
+        }
+
+        [HttpGet]
+        public JsonResult GetAllCustomizations()
+        {
+            List<Customization> customizations = new List<Customization>();
+            try
+            {
+                customizations = repository.GetAllCustomizations();
+            }
+            catch (Exception)
+            {
+                customizations = null;
+            }
+            return Json(customizations);
+        }
+
+        [HttpGet]
+        public JsonResult GetCustomizationbyUserId(int userId)
+        {
+            Console.WriteLine("Get Customization BY ID controller is called");
+            Customization customization = null;
+            try
+            {
+                customization = repository.GetCustomizationbyUserId(userId);
+                Console.WriteLine("Customization :");
+                Console.WriteLine(customization);
+            }
+            catch (Exception ex)
+            {
+                customization = null;
+            }
+            return Json(customization);
+        }
+
+        [HttpGet]
+        public JsonResult GetCustomizationbyCustomId(int customId)
+        {
+            Console.WriteLine("Get Customization BY  CustomID controller is called");
+            Customization customization = null;
+            try
+            {
+                customization = repository.GetCustomizationbyCustomId(customId);
+                Console.WriteLine("Customization :");
+                Console.WriteLine(customization);
+            }
+            catch (Exception ex)
+            {
+                customization = null;
+            }
+            return Json(customization);
+        }
+
+        [HttpPost]
+        public JsonResult AddCustomization([FromBody] Customization customization)
+        {
+            bool status;
+            try
+            {
+                status = repository.AddCustomization(customization);
+            }
+            catch (Exception ex)
+            {
+                status = false;
+            }
+            return Json(status);
+        }
+
+
+
+    }
+}
+
+
