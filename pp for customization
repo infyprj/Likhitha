@@ -1,0 +1,566 @@
+customization.component.html
+
+<!-- Center the form on the page -->
+<div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+  <form (ngSubmit)="submit()"
+        style="width: 100%; max-width: 400px; font-family: Arial, sans-serif; border: 1px solid #ccc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); background-color: #f9f9f9;">
+    <h2 style="text-align: center; margin-bottom: 20px;">Add Customization</h2>
+
+    <!-- Product ID Field -->
+    <div style="margin-bottom: 15px;">
+      <label for="productId" style="display: block; margin-bottom: 5px;">Product ID:</label>
+      <input type="number"
+             id="productId"
+             name="productId"
+             [(ngModel)]="customization.ProductId"
+             required
+             style="width: 100%; padding: 8px; box-sizing: border-box;">
+    </div>
+
+    <!-- Customization Description Field -->
+    <div style="margin-bottom: 15px;">
+      <label for="details" style="display: block; margin-bottom: 5px;">Customization Details:</label>
+      <textarea id="details"
+                name="details"
+                [(ngModel)]="customization.CustomizationDescription"
+                required
+                rows="4"
+                style="width: 100%; padding: 8px; box-sizing: border-box;"></textarea>
+    </div>
+
+    <!-- Submit Button -->
+    <button type="submit"
+            style="width: 100%; padding: 10px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      Submit
+    </button>
+
+    <!-- Success / Error Message -->
+    <p *ngIf="message"
+       [ngStyle]="{ color: messageType === 'success' ? 'green' : 'red' }"
+       style="margin-top: 15px; text-align: center; font-weight: bold;">
+      {{ message }}
+    </p>
+  </form>
+</div>
+
+=========================
+
+customization.component.ts
+
+import { Component } from '@angular/core';
+import { Customization, UserService } from '../services/user-service/user.service';
+
+@Component({
+  selector: 'app-customization',
+  templateUrl: './customization.component.html',
+  styleUrls: ['./customization.component.css']
+})
+export class CustomizationComponent
+{
+  customization: Customization = {
+    CustomizationId: 0,
+    UserId: 0,
+    ProductId: 0,
+    CustomizationDescription: ''
+  };
+  message = '';
+  messageType: 'success' | 'error' = 'success';
+  constructor(private userService: UserService) { }
+  ngOnInit(): void
+  {
+    const id = sessionStorage.getItem('userId');
+    if (id) {
+      this.customization.UserId = parseInt(id, 10);
+    }
+
+  }
+  submit() {
+    this.userService.AddCustomization(this.customization).subscribe({
+      next: (success) => {
+        if (success) {
+          this.message = 'Customization submitted successfully!';
+          this.messageType = 'success';
+        } else {
+          this.message = 'Submission failed';
+          this.messageType = 'error';
+        }
+      },
+      error: err => {
+        console.error(err)
+        {
+          this.message = 'An error occurred';
+        }
+      }
+    });
+  }
+}
+================================
+
+view-cart component.ts
+
+import { Component, OnInit, ElementRef } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { ICartProduct, ICartQuantityUpdate } from '../interfaces/cart';
+import { CartService } from '../services/cart-service/cart.service';
+import { ProductService } from '../services/product-service/product.service';
+import { ISavedProduct } from '../interfaces/saved-product';
+import { IProduct } from '../interfaces/product';
+
+@Component({
+  selector: 'app-view-cart',
+  templateUrl: './view-cart.component.html',
+  styleUrls: ['./view-cart.component.css']
+})
+export class ViewCartComponent implements OnInit {
+  userId: number = 0;
+  userRoleId: number = 0;
+  showLoginSuggestion: boolean = false;
+  cartItems: ICartProduct[] = [];
+  isLoading: boolean = false;
+  showZeroCartItems: boolean = false;
+  errorMsg: string = "";
+  prodQuantity: number = 0;
+  showToast = false;
+  toastMessage = "";
+  toastStatus = 0; 
+
+  constructor(private route: ActivatedRoute, private elementRef: ElementRef, private router: Router, private http: HttpClient, private _cartService: CartService, private _productService: ProductService) { }
+
+  ngOnInit() {
+    const ui: string = <string>sessionStorage.getItem("userId");
+    const uri: string = <string>sessionStorage.getItem("userRoleId");
+
+    this.userId = parseInt(ui);
+    this.userRoleId = parseInt(uri);
+
+    if (!this.userId) {
+      this.showLoginSuggestion = true;
+    } else {
+      this.loadCartItems();
+    }
+
+  }
+
+
+  loadCartItems(): void {
+    this.isLoading = true;
+    this._cartService.getCartItems().subscribe(
+      responseData => {
+        if (responseData.length > 0) {
+          this.cartItems = responseData;
+          this.isLoading = false;
+        } else {
+          this.showZeroCartItems = true;
+          this.isLoading = false;
+        }
+      },
+      responseError => {
+        this.errorMsg = responseError;
+        this.isLoading = false;
+      }
+    )
+  }
+
+
+
+  increaseQuantity(item: ICartProduct): void {
+    
+    this._productService.getProductById(item.productID).subscribe(
+      responseData => {
+        if (responseData) {
+          this.prodQuantity = responseData.quantity;
+          if (item.quantity < this.prodQuantity) {
+            const newQuantity = item.quantity + 1;
+            this.updateQuantity(item, newQuantity);
+          }
+        }
+      },
+      responseError => {
+        console.error('Error updating quantity:', responseError);
+      }
+    )
+    
+    
+    
+  }
+
+  decreaseQuantity(item: ICartProduct): void {
+    if (item.quantity > 1) {
+      const newQuantity = item.quantity - 1;
+      this.updateQuantity(item, newQuantity);
+    }
+  }
+
+
+  private updateQuantity(item: ICartProduct, newQuantity: number): void {
+    // Optimistically update the UI
+   
+    const originalQuantity = item.quantity;
+    item.quantity = newQuantity;
+
+    // Call API to update quantity
+    const updateData: ICartQuantityUpdate = {
+      cartItemId: item.cartItemID,
+      quantity: newQuantity
+    };
+
+   
+    this._cartService.updateCartItemQuantity(updateData).subscribe(
+      responseData => {
+        if (responseData) {
+          console.log("Quantity Updated");
+        } else {
+          item.quantity = originalQuantity;
+          console.error('Error updating quantity');
+        }
+      },
+      responseError => {
+        item.quantity = originalQuantity;
+        console.error('Error updating quantity:', responseError);
+      }
+    )
+
+  }
+
+
+  removeItem(item: ICartProduct): void {
+    // Show confirmation dialog
+    if (confirm(`Are you sure you want to remove "${item.name}" from your cart?`)) {
+      // Optimistically remove from UI
+      const itemIndex = this.cartItems.findIndex(ci => ci.cartItemID === item.cartItemID);
+      if (itemIndex > -1) {
+        this.cartItems.splice(itemIndex, 1);
+      }
+
+
+      this._cartService.removeCartItem(item.cartItemID).subscribe(
+        responseData => {
+          if (responseData) {
+            this.showToastMessage("Successfully Removed from Cart", 1);
+            console.log("Item Removed Successfully");;
+          } else {
+            this.cartItems.splice(itemIndex, 0, item);
+            console.error('Error removing item:');
+          }
+        },
+        responseError => {
+          this.cartItems.splice(itemIndex, 0, item);
+          console.error('Error removing item:', responseError);
+        }
+      )
+    }
+  }
+
+
+  wishlistItem(item: ICartProduct): void {
+    const itemIndex = this.cartItems.findIndex(ci => ci.cartItemID === item.cartItemID);
+    
+
+    const wishlistProduct: ISavedProduct = {
+      userId: this.userId,
+      productId: item.productID
+    }
+
+    
+
+    this._productService.addProductToWishlist(wishlistProduct).subscribe(
+      responseData => {
+        if (responseData) {
+          // Product successfully added - show green toast
+          console.log("Product Added to wishlist");
+          this.showToastMessage("Successfully Moved to Wishlist", 1);
+          //this.showToastMessage("Product Added to Wishlist", 1)
+          this._cartService.removeCartItem(item.cartItemID).subscribe(
+            responseData => {
+              if (responseData) {
+                if (itemIndex > -1) {
+                  this.cartItems.splice(itemIndex, 1);
+                }
+                this.showToastMessage("Successfully Moved to Wishlist", 1);
+                console.log("Item Removed Successfully");;
+              } else {
+                this.cartItems.splice(itemIndex, 0, item);
+                console.error('Error removing item:');
+              }
+            },
+            responseError => {
+              this.cartItems.splice(itemIndex, 0, item);
+              console.error('Error removing item:', responseError);
+            }
+          )
+
+        } else {
+          // Product already added - show orange toast
+          console.log("Already Added to Wishlist");
+          this.showToastMessage("Already Added to Wishlist", 0)
+        }
+      },
+      responseError => {
+        this.errorMsg = responseError
+        console.error("Error Wishlisting product:", this.errorMsg);
+      },
+      () => { console.log("Add to Wishlist successfully executed!!"); }
+    )
+    
+    
+  }
+
+
+
+  getTotalItems(): number {
+    return this.cartItems.reduce((total, item) => total + item.quantity, 0);
+  }
+
+  getSubtotal(): number {
+    return this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  }
+
+  getShippingCost(): number {
+    // Free shipping for orders above ₹50,000
+    const subtotal = this.getSubtotal();
+    return subtotal >= 50000 ? 0 : 500;
+  }
+
+  getTaxAmount(): number {
+    // 18% GST
+    const subtotal = this.getSubtotal();
+    return subtotal * 0.18;
+  }
+
+  getTotal(): number {
+    return this.getSubtotal() + this.getShippingCost() + this.getTaxAmount();
+  }
+
+  continueShopping(): void {
+    this.router.navigate(['/products']); // Adjust route as needed
+  }
+
+  proceedToCheckout(): void {
+    if (this.cartItems.length > 0) {
+      // Navigate to checkout page with cart data
+      this.router.navigate(['/checkout'], {
+        state: {
+          cartItems: this.cartItems,
+          totalAmount: this.getTotal()
+        }
+      });
+    }
+  }
+
+
+
+  clearCart(): void {
+    if (confirm('Are you sure you want to clear your entire cart?')) {
+
+      this._cartService.clearCart(this.cartItems[0].cartID).subscribe(
+        responseData => {
+          if (responseData) {
+            console.log("Cart is Cleared");
+          }
+        },
+        responseError => {
+          this.errorMsg = responseError;
+          console.log('Error removing item:', responseError);
+        }
+      )
+
+      
+    }
+  }
+
+
+
+  refreshCart(): void {
+    this.loadCartItems();
+  }
+
+
+
+
+  showToastMessage(message: string, status: number) {
+    this.toastMessage = message;
+    this.toastStatus = status; // 0 = already added (orange), 1 = successfully added (green)
+    this.showToast = true;
+
+    setTimeout(() => {
+      // Add the hide class first to animate the toast sliding up
+      const toastElement = this.elementRef.nativeElement.querySelector('.toast');
+      if (toastElement) {
+        toastElement.classList.add('hide');
+      }
+
+      // Then hide the toast after animation completes
+      setTimeout(() => {
+        this.showToast = false;
+      }, 300); // Match this with the slideUp animation duration
+    }, 3000);
+  }
+
+
+}
+=====================
+view-cart component.html
+
+<app-navbar></app-navbar>
+
+
+
+<!--Toast Message-->
+<div class="toast-container position-fixed top-0 start-50 translate-middle-x p-2 mt-2" *ngIf="showToast">
+  <div class="toast" role="alert" aria-live="assertive" aria-atomic="true"
+       [ngClass]="{'show': showToast, 'toast-success': toastStatus === 1, 'toast-warning': toastStatus === 0}">
+    <div class="toast-body d-flex align-items-center justify-content-center">
+      <i *ngIf="toastStatus === 1" class="fa fa-check-circle me-2"></i>
+      <i *ngIf="toastStatus === 0" class="fa fa-exclamation-circle me-2"></i>
+      {{toastMessage}}
+    </div>
+  </div>
+</div>
+
+<!--Login Suggestion for Guest User-->
+<div class="mt-5" *ngIf="showLoginSuggestion">
+  <h2>Please Login</h2>
+  <p class="text-secondary">Login to view items in your Cart</p>
+  <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="currentColor" class="bi bi-cart3 cart-icon" viewBox="0 0 16 16">
+    <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .49.598l-1 5a.5.5 0 0 1-.465.401l-9.397.472L4.415 11H13a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M3.102 4l.84 4.479 9.144-.459L13.89 4zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
+  </svg>
+  <div>
+    <button class="btn btn-outline-primary login-btn mt-4" routerLink="/login">Login</button>
+  </div>
+</div>
+
+
+<!--Cart Items Container-->
+<div *ngIf="!showLoginSuggestion">
+  <div class="cart-container">
+    <!--<div class="cart-header">
+      <h2><i class="fas fa-shopping-cart"></i> Shopping Cart</h2>
+      <p class="cart-subtitle">{{ cartItems.length }} item(s) in your cart</p>
+    </div>-->
+
+    <div class="cart-content" *ngIf="cartItems.length > 0; else emptyCart">
+      <div class="cart-items">
+        <div class="cart-item" *ngFor="let item of cartItems">
+          <div class="item-image">
+            <img [src]="item.thumbnailURL" [alt]="item.name" class="product-image">
+          </div>
+
+          <div class="item-details">
+            <p class="item-name">{{ item.name }}</p>
+            <!--<p class="item-description">{{ item.description }}</p>-->
+            <div class="qunatity-container">
+              <p class="item-price">₹{{ (item.price * item.quantity) | number:'1.0-0' }}</p>
+              <div class="quantity-selector d-flex flex-row ">
+                <div class="input-group flex quantity-btn-grp" style="width: 120px; height:20px; margin-top:0px;">
+                  <button class="btn btn-outline-secondary" type="button" (click)="decreaseQuantity(item)">
+                    <i class="fa fa-minus"></i>
+                  </button>
+                  <input type="text" class="form-control text-center fw-bold" [value]="item.quantity" readonly>
+                  <button class="btn btn-outline-secondary" type="button" (click)="increaseQuantity(item)">
+                    <i class="fa fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!--<div class="item-quantity">
+            <label class="quantity-label">Quantity:</label>
+            <div class="quantity-controls">
+              <button class="quantity-btn" (click)="decreaseQuantity(item)">
+                <i class="fas fa-minus"></i>
+              </button>
+              <span class="quantity-value">{{ item.quantity }}</span>
+              <button class="quantity-btn" (click)="increaseQuantity(item)">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+          </div>-->
+          <!--<div class="item-total">
+            <div class="total-label">Total:</div>
+            <div class="total-amount">₹{{ (item.price * item.quantity) | number:'1.0-0' }}</div>
+          </div>-->
+
+          <div class="item-actions">
+            <button class="btn btn-outline-primary mb-4 action-btn" (click)="wishlistItem(item)" title="Move to Wishlist">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-heart-fill" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314" />
+              </svg>
+            </button>
+            <button class="btn btn-outline-danger action-btn" (click)="removeItem(item)" title="Remove from Cart">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3-fill" viewBox="0 0 16 16">
+                <path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1H5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5m-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5M4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06m6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528M8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5" />
+              </svg>
+            </button>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="cart-summary">
+        <div class="summary-card">
+          <h4 class="summary-title">Order Summary</h4>
+
+          <div class="summary-row">
+            <span class="summary-label">Subtotal ({{ getTotalItems() }} items):</span>
+            <span class="summary-value">₹{{ getSubtotal() | number:'1.0-0' }}</span>
+          </div>
+
+          <div class="summary-row">
+            <span class="summary-label">Shipping:</span>
+            <span class="summary-value">{{ getShippingCost() === 0 ? 'FREE' : '₹' + (getShippingCost() | number:'1.0-0') }}</span>
+          </div>
+
+          <div class="summary-row">
+            <span class="summary-label">Tax (18% GST):</span>
+            <span class="summary-value">₹{{ getTaxAmount() | number:'1.0-0' }}</span>
+          </div>
+
+          <hr class="summary-divider">
+
+          <div class="summary-row total-row">
+            <span class="summary-label">Total:</span>
+            <span class="summary-value total-amount">₹{{ getTotal() | number:'1.0-0' }}</span>
+          </div>
+
+          <div class="checkout-actions">
+            <button class="continue-shopping-btn" (click)="continueShopping()">
+              Continue Shopping<svg xmlns="http://www.w3.org/2000/svg" width="25" height="20" fill="currentColor" class="bi bi-arrow-right-circle-fill" viewBox="0 0 16 16">
+                <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M4.5 7.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5z" />
+              </svg>
+            </button>
+            <button class="checkout-btn" (click)="proceedToCheckout()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-cart-check-fill" viewBox="0 0 16 16">
+                <path d="M.5 1a.5.5 0 0 0 0 1h1.11l.401 1.607 1.498 7.985A.5.5 0 0 0 4 12h1a2 2 0 1 0 0 4 2 2 0 0 0 0-4h7a2 2 0 1 0 0 4 2 2 0 0 0 0-4h1a.5.5 0 0 0 .491-.408l1.5-8A.5.5 0 0 0 14.5 3H2.89l-.405-1.621A.5.5 0 0 0 2 1zM6 14a1 1 0 1 1-2 0 1 1 0 0 1 2 0m7 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-1.646-7.646-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L8 8.293l2.646-2.647a.5.5 0 0 1 .708.708" />
+              </svg>Proceed to Checkout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #emptyCart>
+      <div class="empty-cart">
+        <div class="empty-cart-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" fill="currentColor" class="bi bi-cart2" viewBox="0 0 16 16">
+            <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5M3.14 5l1.25 5h8.22l1.25-5zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2m-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0m9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2m-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0" />
+          </svg>
+        </div>
+        <h3 class="empty-cart-title">Your cart is empty</h3>
+        <p class="empty-cart-message">Add some amazing furniture to your cart and make your home beautiful!</p>
+        <button class="shop-now-btn" (click)="continueShopping()">
+          <i class="fas fa-store"></i> Shop Now
+        </button>
+      </div>
+    </ng-template>
+
+    <!-- Loading state -->
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="spinner">
+        <i class="fas fa-spinner fa-spin"></i>
+      </div>
+      <p>Loading your cart...</p>
+    </div>
+  </div>
+</div>
