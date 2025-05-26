@@ -1,0 +1,137 @@
+component.ts
+
+mport { Component } from '@angular/core';
+import { Customization, UserService } from '../services/user-service/user.service';
+
+@Component({
+  selector: 'app-customization',
+  templateUrl: './customization.component.html',
+  styleUrls: ['./customization.component.css']
+})
+export class CustomizationComponent {
+  customization: Customization = {
+    CustomizationId: 0,
+    UserId: 0,
+    ProductId: 0,
+    CustomizationDescription: ''
+  };
+  message = '';
+  messageType: 'success' | 'error' = 'success';
+
+  // New property for modal control
+  isModalOpen = false;
+
+  constructor(private userService: UserService) { }
+
+  ngOnInit(): void {
+    const id = sessionStorage.getItem('userId');
+    if (id) {
+      this.customization.UserId = parseInt(id, 10);
+    }
+  }
+
+  openModal() {
+    this.isModalOpen = true;
+  }
+
+  closeModal(event?: MouseEvent) {
+    if (event) event.stopPropagation();
+    this.isModalOpen = false;
+    this.message = '';
+    this.customization.CustomizationDescription = '';
+  }
+
+  submit() {
+    this.userService.AddCustomization(this.customization).subscribe({
+      next: (success) => {
+        if (success) {
+          this.message = 'Customization submitted successfully!';
+          this.messageType = 'success';
+
+          // Optionally close modal after success
+          setTimeout(() => this.closeModal(), 2000);
+        } else {
+          this.message = 'Submission failed';
+          this.messageType = 'error';
+        }
+      },
+      error: (err) => {
+        console.error(err);
+        this.message = 'An error occurred';
+        this.messageType = 'error';
+      }
+    });
+  }
+}
+
+==============
+html
+<div class="order-summary">
+  <!-- Your order summary content here -->
+  <!-- Button to open modal -->
+  <button (click)="openModal()">Add Customization</button>
+</div>
+
+<!-- Modal -->
+<div class="modal" [class.show]="isModalOpen" (click)="closeModal($event)">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <h2>Customization Details</h2>
+    <textarea [(ngModel)]="customization.CustomizationDescription"
+              placeholder="Enter your customization details here"
+              rows="5"
+              cols="30"></textarea>
+
+    <div class="modal-footer">
+      <button (click)="submit()">Submit</button>
+      <button (click)="closeModal()">Cancel</button>
+    </div>
+
+    <p *ngIf="message" [ngClass]="messageType">{{ message }}</p>
+  </div>
+</div>
+
+
+========================
+css
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+  .modal.show {
+    display: flex;
+  }
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 5px;
+  width: 400px;
+  max-width: 90%;
+}
+
+.modal-footer {
+  margin-top: 10px;
+  text-align: right;
+}
+
+button {
+  margin-left: 5px;
+}
+
+.success {
+  color: green;
+}
+
+.error {
+  color: red;
+}
