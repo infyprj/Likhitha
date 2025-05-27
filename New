@@ -1,0 +1,454 @@
+ts
+
+import { Component, OnInit, ElementRef } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { ICartProduct, ICartQuantityUpdate } from '../interfaces/cart';
+import { CartService } from '../services/cart-service/cart.service';
+import { ProductService } from '../services/product-service/product.service';
+import { ISavedProduct } from '../interfaces/saved-product';
+import { IProduct } from '../interfaces/product';
+import { Customization } from '../services/user-service/user.service';
+import { UserService } from '../services/user-service/user.service';
+
+@Component({
+  selector: 'app-view-cart',
+  templateUrl: './view-cart.component.html',
+  styleUrls: ['./view-cart.component.css']
+})
+export class ViewCartComponent implements OnInit {
+  userId: number = 0;
+  userRoleId: number = 0;
+  showLoginSuggestion: boolean = false;
+  cartItems: ICartProduct[] = [];
+  isLoading: boolean = false;
+  showZeroCartItems: boolean = false;
+  errorMsg: string = "";
+  prodQuantity: number = 0;
+  showToast = false;
+  toastMessage = "";
+  toastStatus = 0;
+
+  customization: Customization = {
+    CustomizationId: 0,
+    UserId: 0,
+    ProductId: 0,
+    CustomizationDescription: ''
+  };
+  isCustomizationModalOpen = false;
+  customizationMessage = '';
+  customizationMessageType: 'success' | 'error' = 'success';
+
+  constructor(
+    private route: ActivatedRoute,
+    private elementRef: ElementRef,
+    private router: Router,
+    private http: HttpClient,
+    private _cartService: CartService,
+    private _productService: ProductService,
+    private userService: UserService
+  ) { }
+
+  ngOnInit() {
+    const ui: string = <string>sessionStorage.getItem("userId");
+    const uri: string = <string>sessionStorage.getItem("userRoleId");
+
+    this.userId = parseInt(ui);
+    this.userRoleId = parseInt(uri);
+
+    if (!this.userId) {
+      this.showLoginSuggestion = true;
+    } else {
+      this.loadCartItems();
+      this.customization.UserId = this.userId;
+    }
+  }
+
+  openCustomizationModal() {
+    this.isCustomizationModalOpen = true;
+  }
+
+  closeCustomizationModal(event?: MouseEvent) {
+    if (event) event.stopPropagation();
+    this.isCustomizationModalOpen = false;
+    this.customizationMessage = '';
+    this.customization.CustomizationDescription = '';
+  }
+
+  submitCustomization() {
+    this.userService.AddCustomization(this.customization).subscribe({
+      next: (success) => {
+        if (success) {
+          this.customizationMessage = 'Customization submitted successfully!';
+          this.customizationMessageType = 'success';
+          setTimeout(() => this.closeCustomizationModal(), 2000);
+        } else {
+          this.customizationMessage = 'Submission failed';
+          this.customizationMessageType = 'error';
+        }
+      },
+      error: (err) => {
+        console.error(err);
+        this.customizationMessage = 'An error occurred';
+        this.customizationMessageType = 'error';
+      }
+    });
+  }
+
+  loadCartItems(): void {
+    this.isLoading = true;
+    this._cartService.getCartItems().subscribe(
+      responseData => {
+        if (responseData.length > 0) {
+          this.cartItems = responseData;
+          this.isLoading = false;
+        } else {
+          this.showZeroCartItems = true;
+          this.isLoading = false;
+        }
+      },
+      responseError => {
+        this.errorMsg = responseError;
+        this.isLoading = false;
+      }
+    )
+  }
+
+  increaseQuantity(item: ICartProduct): void {
+    this._productService.getProductById(item.productID).subscribe(
+      responseData => {
+        if (responseData) {
+          this.prodQuantity = responseData.quantity;
+          if (item.quantity < this.prodQuantity) {
+            const newQuantity = item.quantity + 1;
+            this.updateQuantity(item, newQuantity);
+          }
+        }
+      },
+      responseError => {
+        console.error('Error updating quantity:', responseError);
+      }
+    )
+  }
+
+  decreaseQuantity(item: ICartProduct): void {
+    if (item.quantity > 1) {
+      const newQuantity = item.quantity - 1;
+      this.updateQuantity(item, newQuantity);
+    }
+  }
+
+  private updateQuantity(item: ICartProduct, newQuantity: number): void {
+    const originalQuantity = item.quantity;
+    item.quantity = newQuantity;
+
+    const updateData: ICartQuantityUpdate = {
+      cartItemId: item.cartItemID,
+      quantity: newQuantity
+    };
+
+    this._cartService.updateCartItemQuantity(updateData).subscribe(
+      responseData => {
+        if (!responseData) {
+          item.quantity = originalQuantity;
+          console.error('Error updating quantity');
+        }
+      },
+      responseError => {
+        item.quantity = originalQuantity;
+        console.error('Error updating quantity:', responseError);
+      }
+    )
+  }
+
+  removeItem(item: ICartProduct): void {
+    if (confirm(`Are you sure you want to remove "${item.name}" from your cart?`)) {
+      const itemIndex = this.cartItems.findIndex(ci => ci.cartItemID === item.cartItemID);
+      if (itemIndex > -1) {
+        this.cartItems.splice(itemIndex, 1);
+      }
+
+      this._cartService.removeCartItem(item.cartItemID).subscribe(
+        responseData => {
+          if (responseData) {
+            this.showToastMessage("Successfully Removed from Cart", 1);
+          } else {
+            this.cartItems.splice(itemIndex, 0, item);
+            console.error('Error removing item:');
+          }
+        },
+        responseError => {
+          this.cartItems.splice(itemIndex, 0, item);
+          console.error('Error removing item:', responseError);
+        }
+      )
+    }
+  }
+
+  wishlistItem(item: ICartProduct): void {
+    const itemIndex = this.cartItems.findIndex(ci => ci.cartItemID === item.cartItemID);
+
+    const wishlistProduct: ISavedProduct = {
+      userId: this.userId,
+      productId: item.productID
+    }
+
+    this._productService.addProductToWishlist(wishlistProduct).subscribe(
+      responseData => {
+        if (responseData) {
+          this.showToastMessage("Successfully Moved to Wishlist", 1);
+          this._cartService.removeCartItem(item.cartItemID).subscribe(
+            responseData => {
+              if (responseData) {
+                if (itemIndex > -1) {
+                  this.cartItems.splice(itemIndex, 1);
+                }
+              } else {
+                this.cartItems.splice(itemIndex, 0, item);
+                console.error('Error removing item:');
+              }
+            },
+            responseError => {
+              this.cartItems.splice(itemIndex, 0, item);
+              console.error('Error removing item:', responseError);
+            }
+          )
+        } else {
+          this.showToastMessage("Already Added to Wishlist", 0);
+        }
+      },
+      responseError => {
+        this.errorMsg = responseError;
+        console.error("Error Wishlisting product:", this.errorMsg);
+      },
+      () => { console.log("Add to Wishlist successfully executed!!"); }
+    )
+  }
+
+  getTotalItems(): number {
+    return this.cartItems.reduce((total, item) => total + item.quantity, 0);
+  }
+
+  getSubtotal(): number {
+    return this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  }
+
+  getShippingCost(): number {
+    const subtotal = this.getSubtotal();
+    return subtotal >= 50000 ? 0 : 500;
+  }
+
+  getTaxAmount(): number {
+    const subtotal = this.getSubtotal();
+    return subtotal * 0.18;
+  }
+
+  getTotal(): number {
+    return this.getSubtotal() + this.getShippingCost() + this.getTaxAmount();
+  }
+
+  continueShopping(): void {
+    this.router.navigate(['/products']);
+  }
+
+  proceedToCheckout(): void {
+    if (this.cartItems.length > 0) {
+      this.router.navigate(['/checkout', this.cartItems[0].cartID]);
+    }
+  }
+
+  clearCart(): void {
+    if (confirm('Are you sure you want to clear your entire cart?')) {
+      this._cartService.clearCart(this.cartItems[0].cartID).subscribe(
+        responseData => {
+          if (responseData) {
+            console.log("Cart is Cleared");
+          }
+        },
+        responseError => {
+          this.errorMsg = responseError;
+          console.log('Error removing item:', responseError);
+        }
+      )
+    }
+  }
+
+  refreshCart(): void {
+    this.loadCartItems();
+  }
+
+  showToastMessage(message: string, status: number) {
+    this.toastMessage = message;
+    this.toastStatus = status;
+    this.showToast = true;
+
+    setTimeout(() => {
+      const toastElement = this.elementRef.nativeElement.querySelector('.toast');
+      if (toastElement) {
+        toastElement.classList.add('hide');
+      }
+      setTimeout(() => {
+        this.showToast = false;
+      }, 300);
+    }, 3000);
+  }
+}
+
+
+===
+html
+
+<!-- Customization Button + Modal and Order Summary -->
+<div style="display: flex; gap: 20px; align-items: flex-start; margin-top: 1rem;">
+  <!-- Customization Button -->
+  <div>
+    <button class="btn btn-outline-secondary" (click)="openCustomizationModal()" title="Add Customization">
+      <i class="fa fa-pencil-alt"></i> Customize
+    </button>
+
+    <!-- Customization Modal -->
+    <div class="modal" [class.show]="isCustomizationModalOpen" (click)="closeCustomizationModal($event)">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <h2>Customization Details</h2>
+        <textarea [(ngModel)]="customization.CustomizationDescription"
+                  placeholder="Enter your customization details here"
+                  rows="5"
+                  cols="30"></textarea>
+        <div class="modal-footer">
+          <button (click)="submitCustomization()">Submit</button>
+          <button (click)="closeCustomizationModal()">Cancel</button>
+        </div>
+        <p *ngIf="customizationMessage" [ngClass]="customizationMessageType">{{ customizationMessage }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Summary Section -->
+  <div class="cart-summary">
+    <div class="summary-card">
+      <h4 class="summary-title">Order Summary</h4>
+
+      <div class="summary-row">
+        <span class="summary-label">Subtotal ({{ getTotalItems() }} items):</span>
+        <span class="summary-value">₹{{ getSubtotal() | number:'1.0-0' }}</span>
+      </div>
+
+      <div class="summary-row">
+        <span class="summary-label">Shipping:</span>
+        <span class="summary-value">{{ getShippingCost() === 0 ? 'FREE' : '₹' + (getShippingCost() | number:'1.0-0') }}</span>
+      </div>
+
+      <div class="summary-row">
+        <span class="summary-label">Tax (18% GST):</span>
+        <span class="summary-value">₹{{ getTaxAmount() | number:'1.0-0' }}</span>
+      </div>
+
+      <hr class="summary-divider">
+
+      <div class="summary-row total-row">
+        <span class="summary-label">Total:</span>
+        <span class="summary-value total-amount">₹{{ getTotal() | number:'1.0-0' }}</span>
+      </div>
+
+      <div class="checkout-actions">
+        <button class="continue-shopping-btn" (click)="continueShopping()">
+          Continue Shopping<svg xmlns="http://www.w3.org/2000/svg" width="25" height="20" fill="currentColor" class="bi bi-arrow-right-circle-fill" viewBox="0 0 16 16">
+            <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M4.5 7.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5z" />
+          </svg>
+        </button>
+        <button class="checkout-btn" (click)="proceedToCheckout()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-cart-check-fill" viewBox="0 0 16 16">
+            <path d="M.5 1a.5.5 0 0 0 0 1h1.11l.401 1.607 1.498 7.985A.5.5 0 0 0 4 12h1a2 2 0 1 0 0 4 2 2 0 0 0 0-4h7a2 2 0 1 0 0 4 2 2 0 0 0 0-4h1a.5.5 0 0 0 .491-.408l1.5-8A.5.5 0 0 0 14.5 3H2.89l-.405-1.621A.5.5 0 0 0 2 1zM6 14a1 1 0 1 1-2 0 1 1 0 0 1 2 0m7 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-1.646-7.646-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L8 8.293l2.646-2.647a.5.5 0 0 1 .708.708" />
+          </svg>Proceed to Checkout
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+===
+css
+/* Customization Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal.show {
+  display: flex;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  font-size: 1.4rem;
+  color: #2c3e50;
+}
+
+.modal-content textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  margin-top: 10px;
+}
+
+.modal-footer {
+  margin-top: 15px;
+  text-align: right;
+}
+
+.modal-footer button {
+  margin-left: 10px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-footer button:first-child {
+  background-color: #3498db;
+  color: white;
+}
+
+.modal-footer button:last-child {
+  background-color: #ccc;
+  color: #333;
+}
+
+.success {
+  color: green;
+  margin-top: 10px;
+  font-weight: 500;
+}
+
+.error {
+  color: red;
+  margin-top: 10px;
+  font-weight: 500;
+}
+
+/* Optional animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
