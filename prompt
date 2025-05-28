@@ -1,0 +1,169 @@
+product details.component.html
+
+<app-navbar></app-navbar>
+
+
+<div class="container mt-5" *ngIf="loading">
+  <div class="row">
+    <div class="col-12 text-center">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="toast-container position-fixed top-0 start-50 translate-middle-x p-2 mt-2" *ngIf="showToast">
+  <div class="toast" role="alert" aria-live="assertive" aria-atomic="true"
+       [ngClass]="{'show': showToast, 'toast-success': toastStatus === 1, 'toast-warning': toastStatus === 0}">
+    <div class="toast-body d-flex align-items-center justify-content-center">
+      <i *ngIf="toastStatus === 1" class="fa fa-check-circle me-2"></i>
+      <i *ngIf="toastStatus === 0" class="fa fa-exclamation-circle me-2"></i>
+      {{toastMessage}}
+    </div>
+  </div>
+</div>
+
+
+
+<div class="container mt-5" *ngIf="!loading && product">
+  <div class="row">
+    <!-- Product Images Section -->
+    <div class="col-md-6">
+      <div class="product-image-container mb-3 pl-2">
+        <!-- Regular Image View -->
+        <img *ngIf="!is3DViewActive" [src]="activeImageUrl" class="img-fluid main-product-image p-3" alt="{{ product.name }}">
+
+        <!-- 3D Model Viewer -->
+        <model-viewer *ngIf="is3DViewActive"
+                      src="{{ modelUrl }}"
+                      alt="{{ product.name }} 3D Model"
+                      auto-rotate
+                      camera-controls
+                      shadow-intensity="1"
+                      exposure="1"
+                      class="model-viewer-container">
+        </model-viewer>
+      </div>
+
+      <div class="product-thumbnails d-flex flex-wrap">
+        <!-- Main thumbnail -->
+        <div class="thumbnail-item me-2 mb-2" (click)="setActiveImage(product.thumbnailUrl)"
+             [ngClass]="{'active-thumbnail': activeImageUrl === product.thumbnailUrl && !is3DViewActive}">
+          <img [src]="product.thumbnailUrl" class=""
+               alt="product image">
+        </div>
+
+        <!-- 3D Model thumbnail (second position) -->
+        <div class="thumbnail-item me-2 mb-2 model-3d-thumb" (click)="active3DView()"
+             [ngClass]="{'active-thumbnail': is3DViewActive}">
+          <div class=" 3d-thumbnail">
+            <i class="fa fa-cube 3d-icon"></i>
+            <span class="3d-label">3D</span>
+          </div>
+        </div>
+
+        <!-- Additional images (starting from third position) -->
+        <!--<div class="thumbnail-item me-2 mb-2" *ngFor="let image of productImages" (click)="setActiveImage(image.imageUrl)"
+             [ngClass]="{'active-thumbnail': activeImageUrl === image.imageUrl && !is3DViewActive}"
+             >
+          <img [src]="image.imageUrl" class=""
+
+               alt="product image">
+        </div>-->
+      </div>
+    </div>
+
+    <!-- Product Details Section -->
+    <div class="col-md-6 product-detail-section">
+      <h1 class="product-title mb-3">{{ product.name }}</h1>
+
+      <div class="product-price mb-4">
+        <h3 class="mb-2">₹{{ product.price.toLocaleString() }}</h3>
+        <span class="text-success "><span class="fw-bold">In Stock </span>({{ product.quantity }} available)</span>
+      </div>
+
+      <div class="quantity-selector d-flex flex-row mb-4 ">
+        <div class="input-group flex" style="width: 150px;">
+          <button class="btn btn-outline-secondary" type="button" (click)="decrementQuantity()">
+            <i class="fa fa-minus"></i>
+          </button>
+          <input type="text" class="form-control text-center" [value]="quantity" readonly>
+          <button class="btn btn-outline-secondary" type="button" (click)="incrementQuantity()">
+            <i class="fa fa-plus"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="product-actions mb-4">
+        <button class="btn btn-primary btn-lg me-2" (click)="addToCart()">
+          <i class="fa fa-shopping-cart me-2"></i>Add to Cart
+        </button>
+        <button class="btn btn-outline-secondary btn-lg" (click)="addToWhishlist()">
+          <i class="fa fa-heart me-2"></i>Add to Wishlist
+        </button>
+      </div>
+      <div class="product-description mb-4">
+        <h4>Description</h4>
+        <p>{{ product.description }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="product-reviews mt-5">
+    <h4 class="mb-3" style="text-align:left">Customer Reviews</h4>
+  <div *ngFor="let review of reviews">
+    <div class="review-card" *ngIf="review.isVisible">
+      <div class="review-header">
+        <div>
+          <strong>{{ review.firstName }} {{ review.lastName }}</strong>
+          <span class="review-date">{{ review.reviewDate | date: 'mediumDate' }}</span>
+        </div>
+
+         <!--Three dots button, shown only to the review's author--> 
+        <div class="review-menu">
+          <button *ngIf="review.userID === currentUserID"
+                  class="dots-button"
+                  (click)="toggleMenu(review.reviewID)">
+            ⋮
+          </button>
+          <div *ngIf="review.showMenu" class="menu">
+            <button (click)="deleteReview(review.reviewID)">Delete Review</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="review-description" style="text-align:left">{{ review.description }}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Error message display -->
+<div class="container mt-5" *ngIf="!loading && !product">
+  <div class="alert alert-danger" role="alert">
+    <h4 class="alert-heading">Product Not Found!</h4>
+    <p>Sorry, we couldn't find the product you're looking for. {{ errorMsg }}</p>
+    <hr>
+    <p class="mb-0">Please try again or browse our other products.</p>
+  </div>
+</div>
+
+This is the code for ur reference 
+In this i want to add faqs for each products based on productid
+if productid=1
+Iwant to add this faqs
+What is the upholstery material made of?
+The Velvet Elegance Two-Seater features premium velvet fabric that is soft to the touch, durable, and resistant to wear and fading.
+
+Is the fabric stain-resistant?
+Yes, the fabric is treated with a stain-resistant coating to help repel common spills such as coffee, wine, and food.
+
+if productid=2
+Is there any cable management system included?
+Yes, the desk includes built-in cable management holes to help organize your workspace.
+
+What is the warranty on the Catalina Office Desk?
+The desk comes with a 2-year limited warranty covering manufacturing defects.
+
+
+To implement made the required changes ang give me
