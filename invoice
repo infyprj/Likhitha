@@ -1,0 +1,564 @@
+<app-navbar></app-navbar>
+
+<div class="orders-container">
+  <div class="page-header">
+    <h1 class="page-title">My Orders</h1>
+    <!--<p class="page-subtitle">Track and manage your orders</p>-->
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isOrdersLoading || isOrderItemsLoading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading your orders...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="errorMsg && !isOrdersLoading && !isOrderItemsLoading" class="error-container">
+    <div class="error-message">
+      <i class="error-icon">⚠️</i>
+      <p>{{ errorMsg }}</p>
+    </div>
+  </div>
+
+  <!-- Orders List -->
+  <div *ngIf="!isOrdersLoading && !isOrderItemsLoading && orders.length > 0" class="orders-list">
+    <div *ngFor="let order of orders" class="order-card">
+      <!-- Order Header -->
+      <div class="order-header">
+        <div class="order-info-section">
+          <div class="order-date-section">
+            <span class="info-label">Order Placed On</span>
+            <br />
+            <span class="info-value">{{ formatDate(order.orderDate) }}</span>
+          </div>
+        </div>
+
+        <div class="order-info-section">
+          <div class="order-total-section">
+            <span class="info-label">Total</span>
+            <br />
+            <span class="info-value total-amount">{{ formatPrice(order.totalAmount) }}</span>
+          </div>
+        </div>
+
+        <!--<div class="abcd">
+    <button (click)="printOrderInvoice(order)">Download Invoice</button>
+  </div>-->
+
+        <div class="abcd" (click)="printOrderInvoice(order)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-receipt-cutoff" viewBox="0 0 16 16">
+            <path d="M3 4.5a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5M11.5 4a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm0 2a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm0 2a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm0 2a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm0 2a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1z" />
+            <path d="M2.354.646a.5.5 0 0 0-.801.13l-.5 1A.5.5 0 0 0 1 2v13H.5a.5.5 0 0 0 0 1h15a.5.5 0 0 0 0-1H15V2a.5.5 0 0 0-.053-.224l-.5-1a.5.5 0 0 0-.8-.13L13 1.293l-.646-.647a.5.5 0 0 0-.708 0L11 1.293l-.646-.647a.5.5 0 0 0-.708 0L9 1.293 8.354.646a.5.5 0 0 0-.708 0L7 1.293 6.354.646a.5.5 0 0 0-.708 0L5 1.293 4.354.646a.5.5 0 0 0-.708 0L3 1.293zm-.217 1.198.51.51a.5.5 0 0 0 .707 0L4 1.707l.646.647a.5.5 0 0 0 .708 0L6 1.707l.646.647a.5.5 0 0 0 .708 0L8 1.707l.646.647a.5.5 0 0 0 .708 0L10 1.707l.646.647a.5.5 0 0 0 .708 0L12 1.707l.646.647a.5.5 0 0 0 .708 0l.509-.51.137.274V15H2V2.118z" />
+          </svg>
+          Download Invoice
+        </div>
+
+
+        <div class="order-info-section">
+          <div class="shipping-section">
+            <span class="info-label">Shipped To</span>
+            <br />
+            <div class="shipped-to-container">
+              <span class="info-value shipping-name">{{ order.name }}</span>
+
+              <div class="address-tooltip">
+                <div class="tooltip-content">
+                  <div class="address-details">
+                    <h4>{{ order.name }}</h4>
+                    <p>{{ getFullAddress(order) }}</p>
+                    <p class="phone-number">📞 {{ order.phoneNumber }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Order Items -->
+     
+      <div class="order-items">
+        <div *ngFor="let item of getOrderItems(order.orderId)" class="order-item">
+          <div class="item-image">
+            <img [src]="item.thumbnailUrl" [alt]="item.productName" class="product-thumbnail">
+          </div>
+
+          <div class="item-details">
+            <h3 class="product-name">{{ item.productName }}</h3>
+            <div class="item-meta">
+              <span class="quantity">Qty: {{ item.quantity }}</span>
+              <span class="unit-price">{{ formatPrice(item.unitPrice) }}</span>
+            </div>
+            <div class="item-actions">
+              <button class="action-btn rate-btn"
+                      (click)="onRateProduct(item.productId, item.productName)"
+                      type="button">
+                <span class="btn-icon">⭐</span>
+                Rate Product
+              </button>
+              <button class="action-btn review-btn"
+                      (click)="openReviewModal(item)"
+                      type="button">
+                <span class="btn-icon">✍️</span>
+                Review Product
+              </button>
+
+              <!--<div>
+            <app-invoice></app-invoice>
+          </div>-->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isOrdersLoading && !isOrderItemsLoading && orders.length === 0 && !errorMsg" class="empty-state">
+    <div class="empty-icon">📦</div>
+    <h2>No Orders Yet</h2>
+    <p>When you place your first order, it will appear here.</p>
+    <button class="shop-now-btn" type="button">Start Shopping</button>
+  </div>
+
+  <!-- Rating Modal -->
+  <div *ngIf="showRatingModal" class="modal-overlay" (click)="closeRatingModal()">
+    <div class="rating-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">Rate This Product</h2>
+        <button class="close-btn" (click)="closeRatingModal()" type="button">×</button>
+      </div>
+
+      <div class="modal-content">
+        <div class="product-info">
+          <h3 class="product-name-modal">{{ currentProductName }}</h3>
+          <p class="rating-subtitle">How would you rate this product?</p>
+        </div>
+
+        <div class="rating-section">
+          <div class="stars-container">
+            <button *ngFor="let star of [1,2,3,4,5]"
+                    class="star-btn"
+                    [class.selected]="star <= selectedRating"
+                    [class.hover]="star <= selectedRating"
+                    (click)="selectRating(star)"
+                    (mouseenter)="selectRating(star)"
+                    type="button">
+              ⭐
+            </button>
+          </div>
+          <div class="rating-text">
+            <span *ngIf="selectedRating === 1" class="rating-label poor">Poor</span>
+            <span *ngIf="selectedRating === 2" class="rating-label fair">Fair</span>
+            <span *ngIf="selectedRating === 3" class="rating-label good">Good</span>
+            <span *ngIf="selectedRating === 4" class="rating-label very-good">Very Good</span>
+            <span *ngIf="selectedRating === 5" class="rating-label excellent">Excellent</span>
+          </div>
+        </div>
+
+        <div *ngIf="ratingError" class="error-message-modal">
+          {{ ratingError }}
+        </div>
+
+        <div *ngIf="ratingSubmitted" class="success-message">
+          <div class="success-icon">✅</div>
+          <p>Thank you for your rating!</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="cancel-btn"
+                (click)="closeRatingModal()"
+                [disabled]="isSubmittingRating"
+                type="button">
+          Cancel
+        </button>
+        <button class="submit-rating-btn"
+                (click)="submitRating()"
+                [disabled]="selectedRating === 0 || isSubmittingRating || ratingSubmitted"
+                type="button">
+          <span *ngIf="isSubmittingRating" class="loading-spinner"></span>
+          <span *ngIf="!isSubmittingRating && !ratingSubmitted">Submit Rating</span>
+          <span *ngIf="ratingSubmitted">Submitted</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- Review Modal -->
+  <div *ngIf="reviewModalOpen" class="modal-overlay" (click)="closeReviewModal()" tabindex="0" role="dialog" aria-modal="true" aria-labelledby="reviewModalTitle" aria-describedby="reviewModalDesc">
+    <div class="rating-modal" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2 id="reviewModalTitle" class="modal-title">Review Product</h2>
+        <button aria-label="Close review modal" class="close-btn" (click)="closeReviewModal()">&times;</button>
+      </header>
+
+      <section class="modal-content" id="reviewModalDesc">
+        <div class="product-info" *ngIf="currentReviewProduct">
+          <p class="product-name-modal">{{ currentReviewProduct.productName }}</p>
+        </div>
+
+        <textarea rows="5"
+                  [(ngModel)]="reviewText"
+                  placeholder="Write your review here..."
+                  aria-label="Review text"
+                  class="review-textarea"
+                  [disabled]="reviewSubmitting"></textarea>
+
+        <div *ngIf="reviewErrorMessage" class="error-message-modal">{{ reviewErrorMessage }}</div>
+        <div *ngIf="reviewSuccessMessage" class="success-message">
+          <div class="success-icon">✔️</div>
+          <p>{{ reviewSuccessMessage }}</p>
+        </div>
+      </section>
+
+      <footer class="modal-footer">
+        <button class="cancel-btn" (click)="closeReviewModal()" [disabled]="reviewSubmitting">Cancel</button>
+        <button class="submit-rating-btn" (click)="submitReview()" [disabled]="reviewSubmitting">
+          <span *ngIf="!reviewSubmitting">Submit Review</span>
+          <span *ngIf="reviewSubmitting" class="loading-spinner"></span>
+        </button>
+      </footer>
+    </div>
+  </div>
+
+</div>
+==================
+import { Component, OnInit } from '@angular/core';
+import { IOrder } from '../interfaces/order';
+import { IOrderItem } from '../interfaces/orderItem';
+import { OrderService } from '../services/order-service/order.service';
+import { RatingService } from '../services/rating-service/rating.service';
+import { IRatingRequest } from '../interfaces/ratingRequest';
+import { ProductService } from '../services/product-service/product.service';
+import { IReview } from '../interfaces/reviews';
+import { IProduct } from '../interfaces/product';
+
+@Component({
+  selector: 'app-view-orders',
+  templateUrl: './view-orders.component.html',
+  styleUrls: ['./view-orders.component.css']
+})
+export class ViewOrdersComponent implements OnInit {
+  orders: IOrder[] = [];
+  orderItems: IOrderItem[] = [];
+  groupedOrderItems: { [orderId: number]: IOrderItem[] } = {};
+  isOrdersLoading: boolean = true;
+  isOrderItemsLoading: boolean = true;
+  errorMsg: string = '';
+  userId: number = 0; 
+
+  // Rating Modal Properties
+  showRatingModal: boolean = false;
+  currentProductId: number = 0;
+  currentProductName: string = '';
+  selectedRating: number = 0;
+  isSubmittingRating: boolean = false;
+  ratingSubmitted: boolean = false;
+  ratingError: string = '';
+
+  reviewModalOpen = false;
+  currentReviewProduct: any = null;
+  // to store selected product info for review
+  reviewText: string = '';
+  reviewSubmitting: boolean = false;
+  reviewSuccessMessage: string | null = null;
+  reviewErrorMessage: string | null = null;
+
+  constructor(private _orderService: OrderService, private _ratingService: RatingService, private _productService: ProductService) { } 
+
+  ngOnInit(): void {
+    const ui :string= <string>sessionStorage.getItem("userId")
+    this.userId = parseInt(ui);
+
+    this.loadOrders();
+    this.loadOrderItems();
+  }
+
+  loadOrders(): void {
+    this.isOrdersLoading = true;
+    this._orderService.getOrderDetailsByUserId(this.userId).subscribe(
+      (responseData: IOrder[]) => {
+        if (responseData.length > 0) {
+          this.orders = responseData.sort((a, b) => {
+            return new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime();
+          });
+        } else {
+          this.errorMsg = "No Orders found for User";
+        }
+        this.isOrdersLoading = false;
+      },
+      (responseError: any) => {
+        this.errorMsg = responseError;
+        console.log("Error in Getting Orders of the user: " + responseError);
+        this.isOrdersLoading = false;
+      }
+    );
+  }
+
+  loadOrderItems(): void {
+    this.isOrderItemsLoading = true;
+    this._orderService.getOrderItemsByUserId(this.userId).subscribe(
+      (responseData: IOrderItem[]) => {
+        if (responseData.length > 0) {
+          this.orderItems = responseData;
+          this.groupOrderItems();
+        } else {
+          this.errorMsg = "No Order Items found for User";
+        }
+        this.isOrderItemsLoading = false;
+      },
+      (responseError: any) => {
+        this.errorMsg = responseError;
+        console.log("Error in Getting Order Items of the user: " + responseError);
+        this.isOrderItemsLoading = false;
+      }
+    );
+  }
+
+  groupOrderItems(): void {
+    this.groupedOrderItems = {};
+    this.orderItems.forEach(item => {
+      if (!this.groupedOrderItems[item.orderId]) {
+        this.groupedOrderItems[item.orderId] = [];
+      }
+      this.groupedOrderItems[item.orderId].push(item);
+    });
+  }
+
+  getOrderItems(orderId: number): IOrderItem[] {
+    return this.groupedOrderItems[orderId] || [];
+  }
+
+  formatDate(date: Date): string {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
+
+  formatPrice(price: number): string {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR'
+    }).format(price);
+  }
+
+  getFullAddress(order: IOrder): string {
+    return `${order.shippingAddress}, ${order.shippingCity}, ${order.shippingState} ${order.shippingPostalCode}, ${order.shippingCountry}`;
+  }
+
+  onRateProduct(productId: number, productName: string): void {
+    this.currentProductId = productId;
+    this.currentProductName = productName;
+    this.selectedRating = 0;
+    this.showRatingModal = true;
+    this.ratingSubmitted = false;
+    this.ratingError = '';
+  }
+
+  
+  // Rating Modal Methods
+  selectRating(rating: number): void {
+    this.selectedRating = rating;
+  }
+
+  submitRating(): void {
+    if (this.selectedRating === 0) {
+      this.ratingError = 'Please select a rating';
+      return;
+    }
+
+    this.isSubmittingRating = true;
+    this.ratingError = '';
+
+    const ratingRequest: IRatingRequest = {
+      userId: this.userId,
+      productId: this.currentProductId,
+      rating: this.selectedRating
+    };
+
+    this._ratingService.addRating(ratingRequest).subscribe(
+      (response: boolean) => {
+        if (response) {
+          this.ratingSubmitted = true;
+          setTimeout(() => {
+            this.closeRatingModal();
+          }, 2000);
+        } else {
+          this.ratingError = 'Failed to submit rating. Please try again.';
+        }
+        this.isSubmittingRating = false;
+      },
+      (error: any) => {
+        this.ratingError = 'Error submitting rating. Please try again.';
+        console.log('Error in submitting rating:', error);
+        this.isSubmittingRating = false;
+      }
+    );
+  }
+
+  closeRatingModal(): void {
+    this.showRatingModal = false;
+    this.selectedRating = 0;
+    this.currentProductId = 0;
+    this.currentProductName = '';
+    this.ratingSubmitted = false;
+    this.ratingError = '';
+    this.isSubmittingRating = false;
+  }
+
+
+  openReviewModal(product: any) {
+    this.currentReviewProduct = product;
+    this.reviewText = '';
+    this.reviewSuccessMessage = null;
+    this.reviewErrorMessage = null;
+    this.reviewModalOpen = true;
+  }
+
+  // --- Close Review Modal ---
+  closeReviewModal() {
+    this.reviewModalOpen = false;
+    this.currentReviewProduct = null;
+    this.reviewText = '';
+    this.reviewSuccessMessage = null;
+    this.reviewErrorMessage = null;
+    this.reviewSubmitting = false;
+  }
+
+  // --- Submit Review (mock async call) ---
+  submitReview() {
+    if (!this.reviewText.trim()) {
+      this.reviewErrorMessage = 'Review cannot be empty.';
+      return;
+    }
+
+    this.reviewSubmitting = true;
+    this.reviewErrorMessage = null;
+
+    // Simulate API call (replace with actual service call)
+    setTimeout(() => {
+      // On success:
+      this.reviewSuccessMessage = 'Review submitted successfully!';
+      this.reviewSubmitting = false;
+      var r: IReview = {
+        reviewID: 0,
+        userID: this.userId,
+        productID: this.currentReviewProduct.productId,
+        description: this.reviewText,
+        reviewDate: new Date(),
+        isVisible: true,
+        firstName: '',
+        lastName: ''
+      };
+      this._productService.addReview(r).subscribe(
+        response => {
+          if (response) {
+            console.log("review added");
+          }
+          else {
+            console.log("review not added");
+          }
+        },
+        error => {
+          console.log("error while submitting");
+        }
+      );
+
+      // Auto close modal after short delay
+      setTimeout(() => this.closeReviewModal(), 2000);
+    }, 1500);
+  }
+
+  generateInvoiceHtml(order: IOrder, items: IOrderItem[]): string {
+    const fullAddress = this.getFullAddress(order);
+    const subtotal = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+    const gst = subtotal * 0.18;
+    const shipping = subtotal > 50000 ? 0 : 500;
+    const total = subtotal + gst + shipping;
+
+    const itemRows = items.map(item => `
+    <tr>
+      <td>${item.productName}</td>
+      <td>${item.quantity}</td>
+      <td>₹${item.unitPrice.toFixed(2)}</td>
+      <td>₹${(item.quantity * item.unitPrice).toFixed(2)}</td>
+    </tr>
+  `).join('');
+
+    return `
+    <html>
+      <head>
+        <title>Invoice - Order #${order.orderId}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { text-align: center; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+          .summary td { font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <h1>Order Invoice</h1>
+        <p><strong>Order ID:</strong> ${order.orderId}</p>
+        <p><strong>Date:</strong> ${this.formatDate(order.orderDate)}</p>
+        <p><strong>Shipping To:</strong><br>${fullAddress}</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows}
+            <tr class="summary">
+              <td colspan="3">Subtotal</td>
+              <td>₹${subtotal.toFixed(2)}</td>
+            </tr>
+            <tr class="summary">
+              <td colspan="3">Shipping Charges</td>
+              <td>₹${shipping.toFixed(2)}</td>
+            </tr>
+            <tr class="summary">
+              <td colspan="3">GST (18%)</td>
+              <td>₹${gst.toFixed(2)}</td>
+            </tr>
+            <tr class="summary">
+              <td colspan="3">Total</td>
+              <td>₹${total.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+  }
+  printOrderInvoice(order: IOrder): void {
+    const items = this.getOrderItems(order.orderId);
+    if (items.length === 0) {
+      alert('No items in order to generate invoice.');
+      return;
+    }
+
+    const invoiceHtml = this.generateInvoiceHtml(order, items);
+    const popupWindow = window.open('', '_blank', 'width=800,height=600');
+
+    if (popupWindow) {
+      popupWindow.document.write(invoiceHtml);
+      popupWindow.document.close();
+      popupWindow.focus();
+      popupWindow.print();
+      popupWindow.close();
+    } else {
+      alert("Popup blocked. Please allow popups for this site.");
+    }
+  }
+
+}
+
